@@ -45,4 +45,44 @@ BEGIN
   IF outstanding <> 400 THEN RAISE EXCEPTION 'debtor outstanding expected 400, got %', outstanding; END IF;
 END $$;
 
+-- A fresh product exercises the rolling windows rather than the historical fixture above.
+INSERT INTO products (name, selling_price, current_stock) VALUES ('Velocity Test', 500, 11);
+INSERT INTO purchases (product_id, quantity, unit_cost, purchased_at)
+SELECT id, 20, 100, CURRENT_TIMESTAMP - INTERVAL '60 days' FROM products WHERE name = 'Velocity Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'PURCHASE', 20, pu.id, 100, pu.purchased_at FROM products p JOIN purchases pu ON pu.product_id = p.id WHERE p.name = 'Velocity Test';
+
+INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
+SELECT id, 3, 500, 100, CURRENT_TIMESTAMP - INTERVAL '40 days' FROM products WHERE name = 'Velocity Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'SALE', -3, s.id, 100, s.sold_at FROM products p JOIN sales s ON s.product_id = p.id WHERE p.name = 'Velocity Test' ORDER BY s.id DESC LIMIT 1;
+
+INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
+SELECT id, 4, 500, 100, CURRENT_TIMESTAMP - INTERVAL '10 days' FROM products WHERE name = 'Velocity Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'SALE', -4, s.id, 100, s.sold_at FROM products p JOIN sales s ON s.product_id = p.id WHERE p.name = 'Velocity Test' ORDER BY s.id DESC LIMIT 1;
+
+INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
+SELECT id, 2, 500, 100, CURRENT_TIMESTAMP FROM products WHERE name = 'Velocity Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'SALE', -2, s.id, 100, s.sold_at FROM products p JOIN sales s ON s.product_id = p.id WHERE p.name = 'Velocity Test' ORDER BY s.id DESC LIMIT 1;
+
+DO $$
+DECLARE u30 numeric; u90 numeric; avg30 numeric; turn30 numeric; daily30 numeric; cover30 numeric;
+BEGIN
+  SELECT units_sold, average_stock_units, inventory_turnover_units, units_per_day, stock_cover_days
+  INTO u30, avg30, turn30, daily30, cover30
+  FROM product_sales_velocity
+  WHERE name = 'Velocity Test' AND window_days = 30;
+
+  IF u30 <> 6 THEN RAISE EXCEPTION '30d units sold expected 6, got %', u30; END IF;
+  IF round(avg30, 1) <> 14.3 THEN RAISE EXCEPTION '30d average stock expected 14.3, got %', avg30; END IF;
+  IF round(turn30, 4) <> round(6 / 14.3, 4) THEN RAISE EXCEPTION '30d turnover mismatch, got %', turn30; END IF;
+  IF round(daily30, 4) <> 0.2 THEN RAISE EXCEPTION '30d units/day expected 0.2, got %', daily30; END IF;
+  IF round(cover30, 1) <> 55.0 THEN RAISE EXCEPTION '30d stock cover expected 55.0 days, got %', cover30; END IF;
+
+  SELECT units_sold INTO u90 FROM product_sales_velocity WHERE name = 'Velocity Test' AND window_days = 90;
+  IF u90 <> 9 THEN RAISE EXCEPTION '90d units sold expected 9, got %', u90; END IF;
+END $$;
+
 ROLLBACK;
