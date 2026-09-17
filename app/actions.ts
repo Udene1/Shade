@@ -20,6 +20,23 @@ export async function createProduct(_state: ActionState, formData: FormData): Pr
   catch (error) { return { ok: false, message: error instanceof Error && error.message.includes("duplicate") ? "A product with that name already exists." : "Could not add the product." }; }
 }
 
+export async function updateProduct(_state: ActionState, formData: FormData): Promise<ActionState> {
+  const productId = positiveInt(text(formData, "product_id"));
+  const name = text(formData, "name"), category = text(formData, "category") || null;
+  const sellingPrice = nonNegativeMoney(text(formData, "selling_price"));
+  const minimumStock = positiveInt(text(formData, "minimum_stock")) ?? 0;
+  if (!productId || !name || sellingPrice === null) return { ok: false, message: "Enter a valid product name and selling price." };
+  if (!process.env.DATABASE_URL) return { ok: false, message: "Database is not connected yet." };
+  try {
+    const rows = await sql`UPDATE products SET name = ${name}, category = ${category}, selling_price = ${sellingPrice}, minimum_stock = ${minimumStock} WHERE id = ${productId} RETURNING id`;
+    if (!rows.length) return { ok: false, message: "Product was not found." };
+    revalidatePath("/");
+    return { ok: true, message: `${name} updated. Historical sales remain unchanged.` };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error && error.message.includes("duplicate") ? "Another product already uses that name." : "Could not update the product." };
+  }
+}
+
 export async function recordPurchase(_state: ActionState, formData: FormData): Promise<ActionState> {
   const productId = positiveInt(text(formData, "product_id")), quantity = positiveInt(text(formData, "quantity")), unitCost = nonNegativeMoney(text(formData, "unit_cost")), supplier = text(formData, "supplier") || null;
   if (!productId || !quantity || unitCost === null) return { ok: false, message: "Select a product and enter a valid quantity and cost." };
