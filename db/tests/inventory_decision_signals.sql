@@ -1,10 +1,10 @@
-TRUNCATE credit_payments, credit_sales, credit_sales, sales, inventory_movements, purchases, debtors, products RESTART IDENTITY CASCADE;
+TRUNCATE credit_payments, credit_sales, sales, inventory_movements, purchases, debtors, products RESTART IDENTITY CASCADE;
 
 INSERT INTO products (name, category, selling_price, current_stock, minimum_stock)
 VALUES
   ('Pressure Product', 'Test', 100, 3, 3),
   ('Idle Product', 'Test', 100, 10, 1),
-  ('Slow Product', 'Test', 100, 20, 1);
+  ('Slow Product', 'Test', 20, 20, 1);
 
 INSERT INTO purchases (product_id, quantity, unit_cost, supplier, purchased_at)
 SELECT id, CASE name WHEN 'Pressure Product' THEN 10 ELSE 20 END, 50, 'Signal Supplier', NOW() - INTERVAL '60 days'
@@ -15,7 +15,7 @@ SELECT id, 'PURCHASE', CASE name WHEN 'Pressure Product' THEN 10 ELSE 20 END, NU
 FROM products;
 
 INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
-SELECT id, CASE name WHEN 'Pressure Product' THEN 7 ELSE 0 END, 100, 50, NOW() - INTERVAL '5 days'
+SELECT id, CASE name WHEN 'Pressure Product' THEN 7 ELSE 0 END, selling_price, 50, NOW() - INTERVAL '5 days'
 FROM products WHERE name IN ('Pressure Product', 'Idle Product');
 
 INSERT INTO inventory_movements (product_id, type, quantity, reference_id, occurred_at, unit_cost)
@@ -28,20 +28,44 @@ UPDATE products SET current_stock = CASE name WHEN 'Pressure Product' THEN 3 ELS
 DO $$
 DECLARE
   pressure_signal text;
+  pressure_demand text;
+  pressure_capital text;
   idle_signal text;
+  idle_demand text;
   slow_signal text;
+  slow_demand text;
+  pressure_margin numeric;
 BEGIN
-  SELECT decision_signal INTO pressure_signal FROM inventory_decision_signals WHERE name = 'Pressure Product';
-  SELECT decision_signal INTO idle_signal FROM inventory_decision_signals WHERE name = 'Idle Product';
-  SELECT decision_signal INTO slow_signal FROM inventory_decision_signals WHERE name = 'Slow Product';
+  SELECT decision_signal, demand_state, capital_state, wac_gross_margin_30d
+    INTO pressure_signal, pressure_demand, pressure_capital, pressure_margin
+  FROM inventory_decision_signals WHERE name = 'Pressure Product';
+  SELECT decision_signal, demand_state INTO idle_signal, idle_demand
+  FROM inventory_decision_signals WHERE name = 'Idle Product';
+  SELECT decision_signal, demand_state INTO slow_signal, slow_demand
+  FROM inventory_decision_signals WHERE name = 'Slow Product';
 
   IF pressure_signal <> 'REPLENISHMENT_PRESSURE' THEN
     RAISE EXCEPTION 'expected replenishment pressure, got %', pressure_signal;
   END IF;
+  IF pressure_demand <> 'FAST_RELATIVE_TO_STOCK' THEN
+    RAISE EXCEPTION 'expected fast relative to stock demand, got %', pressure_demand;
+  END IF;
+  IF pressure_capital <> 'HIGH_30D_PRODUCTIVITY' THEN
+    RAISE EXCEPTION 'expected high capital productivity, got %', pressure_capital;
+  END IF;
+  IF pressure_margin IS NULL OR pressure_margin <= 0 THEN
+    RAISE EXCEPTION 'expected positive WAC gross margin, got %', pressure_margin;
+  END IF;
   IF idle_signal <> 'CAPITAL_TIED_LOW_RECENT_DEMAND' THEN
     RAISE EXCEPTION 'expected low recent demand, got %', idle_signal;
   END IF;
+  IF idle_demand <> 'NO_30D_SALES' THEN
+    RAISE EXCEPTION 'expected no 30d sales, got %', idle_demand;
+  END IF;
   IF slow_signal <> 'CAPITAL_TIED_NO_DEMAND' THEN
     RAISE EXCEPTION 'expected no demand, got %', slow_signal;
+  END IF;
+  IF slow_demand <> 'NO_90D_SALES' THEN
+    RAISE EXCEPTION 'expected no 90d sales, got %', slow_demand;
   END IF;
 END $$;
