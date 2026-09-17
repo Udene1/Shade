@@ -14,7 +14,7 @@ SELECT p.id, 'PURCHASE', pu.quantity, pu.id, pu.unit_cost, pu.purchased_at
 FROM products p JOIN purchases pu ON pu.product_id = p.id;
 
 INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
-SELECT id, 2, 100, 50, CURRENT_TIMESTAMP - INTERVAL '5 days' FROM products WHERE name = 'Moving Stock';
+SELECT id, 5, 100, 50, CURRENT_TIMESTAMP - INTERVAL '5 days' FROM products WHERE name = 'Moving Stock';
 INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
 SELECT p.id, 'SALE', -s.quantity, s.id, s.unit_cost, s.sold_at
 FROM products p JOIN sales s ON s.product_id = p.id;
@@ -29,7 +29,7 @@ BEGIN
   IF status_low <> 'LOW_STOCK' THEN RAISE EXCEPTION 'low stock status mismatch: %', status_low; END IF;
   IF status_idle <> 'NO_SALES_30D' THEN RAISE EXCEPTION 'no-sales status mismatch: %', status_idle; END IF;
   IF status_move <> 'NORMAL' THEN RAISE EXCEPTION 'moving stock status mismatch: %', status_move; END IF;
-  IF units <> 2 THEN RAISE EXCEPTION 'moving stock units expected 2, got %', units; END IF;
+  IF units <> 5 THEN RAISE EXCEPTION 'moving stock units expected 5, got %', units; END IF;
 END $$;
 
 INSERT INTO debtors (name) VALUES ('Large Debtor'), ('Small Debtor');
