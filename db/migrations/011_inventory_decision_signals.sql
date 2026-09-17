@@ -13,10 +13,14 @@ SELECT
   v.revenue AS revenue_30d,
   v.fifo_gross_profit AS fifo_gross_profit_30d,
   v.wac_gross_profit AS wac_gross_profit_30d,
+  CASE WHEN v.revenue = 0 THEN NULL ELSE v.fifo_gross_profit / v.revenue END AS fifo_gross_margin_30d,
+  CASE WHEN v.revenue = 0 THEN NULL ELSE v.wac_gross_profit / v.revenue END AS wac_gross_margin_30d,
   cp.fifo_capital_in_stock,
   cp.wac_capital_in_stock,
   cp.fifo_gross_profit_per_current_stock_cost_30d,
   cp.wac_gross_profit_per_current_stock_cost_30d,
+  cp.fifo_gross_profit_per_current_stock_cost_90d,
+  cp.wac_gross_profit_per_current_stock_cost_90d,
   a.attention_status,
   CASE
     WHEN a.current_stock <= a.minimum_stock AND a.units_sold_30d > 0 THEN 'REPLENISHMENT_PRESSURE'
@@ -26,6 +30,19 @@ SELECT
     WHEN v.stock_cover_days IS NOT NULL AND v.stock_cover_days > 90 THEN 'SLOW_CAPITAL'
     ELSE 'MEASURED_NORMAL'
   END AS decision_signal,
+  CASE
+    WHEN a.units_sold_90d = 0 THEN 'NO_90D_SALES'
+    WHEN a.units_sold_30d = 0 THEN 'NO_30D_SALES'
+    WHEN v.stock_cover_days IS NOT NULL AND v.stock_cover_days <= 14 THEN 'FAST_RELATIVE_TO_STOCK'
+    ELSE 'RECENT_DEMAND'
+  END AS demand_state,
+  CASE
+    WHEN a.current_stock = 0 THEN 'NO_CURRENT_CAPITAL'
+    WHEN cp.wac_gross_profit_per_current_stock_cost_30d IS NULL THEN 'UNMEASURED'
+    WHEN cp.wac_gross_profit_per_current_stock_cost_30d = 0 THEN 'NO_30D_GROSS_PROFIT'
+    WHEN cp.wac_gross_profit_per_current_stock_cost_30d > 1 THEN 'HIGH_30D_PRODUCTIVITY'
+    ELSE 'MEASURED_30D_PRODUCTIVITY'
+  END AS capital_state,
   CASE
     WHEN a.current_stock <= a.minimum_stock AND a.units_sold_30d > 0 THEN 'Stock is at or below the configured minimum while the product has sold in the last 30 days.'
     WHEN v.stock_cover_days IS NOT NULL AND v.stock_cover_days <= 14 AND a.units_sold_30d > 0 THEN 'At the observed 30-day sales velocity, current stock covers 14 days or less.'
