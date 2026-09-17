@@ -64,3 +64,5 @@ CREATE INDEX IF NOT EXISTS idx_sales_product_id ON sales(product_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_movements_product_id ON inventory_movements(product_id);
 CREATE INDEX IF NOT EXISTS idx_credit_sales_debtor_id ON credit_sales(debtor_id);
 CREATE INDEX IF NOT EXISTS idx_credit_payments_credit_sale_id ON credit_payments(credit_sale_id);
+CREATE INDEX IF NOT EXISTS idx_debtors_name ON debtors(name);
+CREATE INDEX IF NOT EXISTS idx_debtors_phone ON debtors(phone);
