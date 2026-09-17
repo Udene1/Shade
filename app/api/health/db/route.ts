@@ -22,13 +22,7 @@ export async function GET() {
   }
 
   try {
-    const rows = await sql`
-      SELECT
-        current_database() AS database,
-        current_user AS user_name,
-        current_timestamp AS checked_at,
-        ${sql.unsafe(`ARRAY[${REQUIRED_TABLES.map((table) => `'${table}'`).join(",")}]::text[]`)} AS required_tables
-    `;
+    const databaseRows = await sql`SELECT current_database() AS database, current_timestamp AS checked_at`;
     const tableRows = await sql`
       SELECT table_name
       FROM information_schema.tables
@@ -41,7 +35,7 @@ export async function GET() {
 
     if (missing.length > 0) {
       return NextResponse.json(
-        { ok: false, status: "MIGRATION_INCOMPLETE", database: String(rows[0]?.database ?? ""), missing_tables: missing },
+        { ok: false, status: "MIGRATION_INCOMPLETE", database: String(databaseRows[0]?.database ?? ""), missing_tables: missing },
         { status: 503 },
       );
     }
@@ -49,8 +43,8 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       status: "READY",
-      database: String(rows[0]?.database ?? ""),
-      checked_at: rows[0]?.checked_at,
+      database: String(databaseRows[0]?.database ?? ""),
+      checked_at: databaseRows[0]?.checked_at,
       tables: present,
     });
   } catch {
