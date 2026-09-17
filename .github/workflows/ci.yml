@@ -53,6 +53,7 @@ jobs:
           psql -h localhost -U postgres -d shade_test -f db/migrations/006_inventory_event_time.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/007_integrity_views.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/008_analytics.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/009_inventory_attention.sql
 
       - name: Test WAC/FIFO valuation
         env:
@@ -68,6 +69,11 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/analytics.sql
+
+      - name: Test inventory attention and debt concentration
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/inventory_attention.sql
 
       - name: Lint
         run: npm run lint
