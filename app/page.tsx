@@ -8,7 +8,7 @@ type Seller = { name: string; sold: number | string; revenue: number | string; p
 type Reconciliation = { id: number; name: string; current_stock: number; ledger_stock: number };
 type DashboardMetrics = { revenue: number | string; cost: number | string; units: number | string; stock_value: number | string; valuation_method: string };
 
-aasync function getDashboard() {
+async function getDashboard() {
   if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[] };
   try {
     const metricsRows = await sql`
