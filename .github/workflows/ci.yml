@@ -49,6 +49,7 @@ jobs:
           psql -h localhost -U postgres -d shade_test -f db/migrations/002_credit_integrity.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/003_inventory_valuation.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/004_inventory_valuation_indexes.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/005_fifo_allocation_hardening.sql
 
       - name: Test WAC/FIFO valuation
         env:
