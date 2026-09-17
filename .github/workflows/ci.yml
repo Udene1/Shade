@@ -52,6 +52,7 @@ jobs:
           psql -h localhost -U postgres -d shade_test -f db/migrations/005_fifo_allocation_hardening.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/006_inventory_event_time.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/007_integrity_views.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/008_analytics.sql
 
       - name: Test WAC/FIFO valuation
         env:
@@ -62,6 +63,11 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/integrity.sql
+
+      - name: Test analytics
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/analytics.sql
 
       - name: Lint
         run: npm run lint
