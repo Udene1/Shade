@@ -38,11 +38,18 @@ SELECT
   END AS demand_state,
   CASE
     WHEN a.current_stock = 0 THEN 'NO_CURRENT_CAPITAL'
+    WHEN cp.fifo_gross_profit_per_current_stock_cost_30d IS NULL THEN 'UNMEASURED'
+    WHEN cp.fifo_gross_profit_per_current_stock_cost_30d = 0 THEN 'NO_30D_GROSS_PROFIT'
+    WHEN cp.fifo_gross_profit_per_current_stock_cost_30d > 1 THEN 'HIGH_30D_PRODUCTIVITY'
+    ELSE 'MEASURED_30D_PRODUCTIVITY'
+  END AS fifo_capital_state,
+  CASE
+    WHEN a.current_stock = 0 THEN 'NO_CURRENT_CAPITAL'
     WHEN cp.wac_gross_profit_per_current_stock_cost_30d IS NULL THEN 'UNMEASURED'
     WHEN cp.wac_gross_profit_per_current_stock_cost_30d = 0 THEN 'NO_30D_GROSS_PROFIT'
     WHEN cp.wac_gross_profit_per_current_stock_cost_30d > 1 THEN 'HIGH_30D_PRODUCTIVITY'
     ELSE 'MEASURED_30D_PRODUCTIVITY'
-  END AS capital_state,
+  END AS wac_capital_state,
   CASE
     WHEN a.current_stock <= a.minimum_stock AND a.units_sold_30d > 0 THEN 'Stock is at or below the configured minimum while the product has sold in the last 30 days.'
     WHEN v.stock_cover_days IS NOT NULL AND v.stock_cover_days <= 14 AND a.units_sold_30d > 0 THEN 'At the observed 30-day sales velocity, current stock covers 14 days or less.'
