@@ -12,9 +12,22 @@ permissions:
 
 jobs:
   verify:
-    name: Build and type-check
+    name: Build, type-check and valuation tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shade_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shade_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -28,6 +41,19 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Apply database schema and migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d shade_test -f db/schema.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/002_credit_integrity.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/003_inventory_valuation.sql
+
+      - name: Test WAC/FIFO valuation
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/valuation.sql
 
       - name: Lint
         run: npm run lint
