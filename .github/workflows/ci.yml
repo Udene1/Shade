@@ -57,6 +57,7 @@ jobs:
           psql -h localhost -U postgres -d shade_test -f db/migrations/010_capital_productivity.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/011_inventory_decision_signals.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/012_transaction_integrity_triggers.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/013_credit_integrity_constraints.sql
 
       - name: Test WAC/FIFO valuation
         env:
@@ -72,6 +73,11 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/transaction_constraints.sql
+
+      - name: Test credit constraints
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/credit_constraints.sql
 
       - name: Test analytics
         env:
