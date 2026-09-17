@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { closeBusinessDay, type ActionState } from "@/app/actions";
 
 const initial: ActionState = { ok: false, message: "" };
@@ -11,7 +11,7 @@ function OpId() {
 }
 
 export function DayClosing({ defaultDate }: { defaultDate: string }) {
-  const [state, action, pending] = (require("react") as typeof import("react")).useActionState(closeBusinessDay, initial);
+  const [state, action, pending] = useActionState(closeBusinessDay, initial);
   return <section className="card section"><h2>Close the day</h2><p className="muted">Locks the recorded daily totals into a historical snapshot. It does not alter sales, stock or debt.</p><form action={action} className="form"><label>Business date<input type="date" name="business_date" defaultValue={defaultDate} required /></label><label>Note <span className="muted">(optional)</span><input name="note" placeholder="Anything to remember about today" /></label><OpId /><button type="submit" disabled={pending}>{pending ? "Closing…" : "CLOSE BUSINESS DAY"}</button>{state.message && <p className={state.ok ? "success" : "error"}>{state.message}</p>}</form></section>;
 }
 
