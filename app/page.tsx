@@ -62,7 +62,11 @@ export default async function Home() {
       </section>
       {data.lowStock.length > 0 && <section className="card section warning"><h2>Low stock</h2>{data.lowStock.map((p) => <div className="row" key={p.id}><strong>{p.name}</strong><span>{p.current_stock} left · minimum {p.minimum_stock}</span></div>)}</section>}
       <section className="card section"><h2>Best sellers</h2>{data.bestSellers.length === 0 ? <p className="muted">Record sales to see which products move fastest.</p> : data.bestSellers.map((p) => <div className="row" key={p.name}><div><strong>{p.name}</strong><div className="muted">{p.sold} sold · ₦{Number(p.revenue).toLocaleString()} revenue</div></div><strong>₦{Number(p.profit).toLocaleString()}</strong></div>)}</section>
-      <InventoryControls method={method} mismatches={data.mismatches} />
+      <InventoryControls
+        method={method}
+        products={data.products.map((p) => ({ id: Number(p.id), name: p.name, current_stock: Number(p.current_stock) }))}
+        mismatches={data.mismatches}
+      />
       <KioskActions products={data.products.map((p) => ({ id: Number(p.id), name: p.name, selling_price: Number(p.selling_price), current_stock: Number(p.current_stock) }))} debts={data.debts.map((d) => ({ ...d, id: Number(d.id) }))} />
     </main>
   );
