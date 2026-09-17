@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { createProduct, recordCreditPayment, recordCreditSale, recordPurchase, recordSale, type ActionState } from "@/app/actions";
 
 type Product = { id: number; name: string; selling_price: number; current_stock: number };
-type Debt = { id: number; debtor_name: string; product_name: string; amount_due: number; paid: number; balance: number };
+type Debt = { id: number; debtor_name: string; product_name: string; amount_due: number | string; paid: number | string; balance: number | string };
 
 const initial: ActionState = { ok: false, message: "" };
 
