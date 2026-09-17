@@ -8,24 +8,29 @@ export async function GET() {
   }
 
   try {
-    const [products, purchases, sales, debtors, creditSales, creditPayments, closings] = await Promise.all([
+    const [products, purchases, sales, movements, debtors, creditSales, creditPayments, operationRequests, closings] = await Promise.all([
       sql`SELECT * FROM products ORDER BY id`,
       sql`SELECT * FROM purchases ORDER BY id`,
       sql`SELECT * FROM sales ORDER BY id`,
+      sql`SELECT * FROM inventory_movements ORDER BY id`,
       sql`SELECT * FROM debtors ORDER BY id`,
       sql`SELECT * FROM credit_sales ORDER BY id`,
       sql`SELECT * FROM credit_payments ORDER BY id`,
+      sql`SELECT * FROM operation_requests ORDER BY created_at, id`,
       sql`SELECT * FROM day_closings ORDER BY business_date`,
     ]);
 
     const backup = {
+      format: "shade-backup-v1",
       exported_at: new Date().toISOString(),
       products,
       purchases,
       sales,
+      inventory_movements: movements,
       debtors,
       credit_sales: creditSales,
       credit_payments: creditPayments,
+      operation_requests: operationRequests,
       day_closings: closings,
     };
 
