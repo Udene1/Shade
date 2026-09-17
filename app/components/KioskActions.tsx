@@ -8,7 +8,7 @@ const initial: ActionState = { ok: false, message: "" };
 function Result({ state }: { state: ActionState }) { return state.message ? <p className={state.ok ? "success" : "error"}>{state.message}</p> : null; }
 function OpId() { const [id] = useState(() => crypto.randomUUID()); return <input type="hidden" name="operation_id" value={id} />; }
 
-export function KioskActions({ products }: { products: Product[] }) {
+export function KioskActions({ products, debts: _debts }: { products: Product[]; debts?: unknown[] }) {
   const [query, setQuery] = useState("");
   const [saleState, saleAction, salePending] = useActionState(recordSale, initial);
   const [creditState, creditAction, creditPending] = useActionState(recordCreditSale, initial);
