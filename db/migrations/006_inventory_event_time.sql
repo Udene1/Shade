@@ -10,19 +10,18 @@ END
 WHERE m.occurred_at IS NULL;
 
 ALTER TABLE inventory_movements
-  ALTER COLUMN occurred_at SET DEFAULT NOW(),
+  ALTER COLUMN occurred_at DROP DEFAULT,
   ALTER COLUMN occurred_at SET NOT NULL;
 
 CREATE OR REPLACE FUNCTION shade_fill_inventory_movement_times()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF NEW.occurred_at IS NULL THEN
-    NEW.occurred_at := NEW.created_at;
-  END IF;
   IF NEW.type = 'PURCHASE' THEN
     SELECT purchased_at INTO NEW.occurred_at FROM purchases WHERE id = NEW.reference_id;
   ELSIF NEW.type = 'SALE' THEN
     SELECT sold_at INTO NEW.occurred_at FROM sales WHERE id = NEW.reference_id;
+  ELSE
+    NEW.occurred_at := COALESCE(NEW.occurred_at, NEW.created_at);
   END IF;
   RETURN NEW;
 END;
