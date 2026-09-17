@@ -10,23 +10,29 @@ INSERT INTO credit_payments (credit_sale_id, amount) VALUES (:credit_id, 150);
 SET CONSTRAINTS ALL IMMEDIATE;
 SET CONSTRAINTS ALL DEFERRED;
 
-DO $$
+DO $outer$
+DECLARE
+  credit_id_local BIGINT := :credit_id;
 BEGIN
   BEGIN
-    INSERT INTO credit_payments (credit_sale_id, amount) VALUES (:credit_id, 51);
+    INSERT INTO credit_payments (credit_sale_id, amount) VALUES (credit_id_local, 51);
     SET CONSTRAINTS ALL IMMEDIATE;
     RAISE EXCEPTION 'overpayment was accepted';
   EXCEPTION WHEN OTHERS THEN
     NULL;
   END;
   SET CONSTRAINTS ALL DEFERRED;
-END $$;
+END
+$outer$;
 
-DO $$
+DO $outer$
+DECLARE
+  credit_id_local BIGINT := :credit_id;
 BEGIN
-  IF (SELECT SUM(amount) FROM credit_payments WHERE credit_sale_id = :credit_id) <> 150 THEN
+  IF (SELECT SUM(amount) FROM credit_payments WHERE credit_sale_id = credit_id_local) <> 150 THEN
     RAISE EXCEPTION 'rejected overpayment changed payment history';
   END IF;
-END $$;
+END
+$outer$;
 
 ROLLBACK;
