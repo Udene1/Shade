@@ -1,0 +1,48 @@
+BEGIN;
+
+TRUNCATE TABLE credit_payments, credit_sales, debtors, inventory_movements, sales, purchases, products RESTART IDENTITY CASCADE;
+
+INSERT INTO products (name, selling_price, current_stock) VALUES ('Analytics Test', 300, 0);
+INSERT INTO purchases (product_id, quantity, unit_cost, purchased_at)
+SELECT id, 10, 100, '2026-03-01T09:00:00Z' FROM products WHERE name = 'Analytics Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'PURCHASE', 10, pu.id, 100, pu.purchased_at FROM products p JOIN purchases pu ON pu.product_id = p.id WHERE p.name = 'Analytics Test';
+UPDATE products SET current_stock = 10 WHERE name = 'Analytics Test';
+
+INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
+SELECT id, 4, 300, 100, '2026-03-02T09:00:00Z' FROM products WHERE name = 'Analytics Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'SALE', -4, s.id, 100, s.sold_at FROM products p JOIN sales s ON s.product_id = p.id WHERE p.name = 'Analytics Test';
+UPDATE products SET current_stock = 6 WHERE name = 'Analytics Test';
+
+DO $$
+DECLARE r numeric; c numeric; gp numeric; gm numeric; stock numeric;
+BEGIN
+  SELECT revenue, wac_cogs, wac_gross_profit, wac_gross_margin, current_stock INTO r, c, gp, gm, stock FROM product_analytics WHERE name = 'Analytics Test';
+  IF r <> 1200 THEN RAISE EXCEPTION 'revenue expected 1200, got %', r; END IF;
+  IF c <> 400 THEN RAISE EXCEPTION 'WAC COGS expected 400, got %', c; END IF;
+  IF gp <> 800 THEN RAISE EXCEPTION 'WAC gross profit expected 800, got %', gp; END IF;
+  IF gm <> 2.0/3.0 THEN RAISE EXCEPTION 'WAC margin mismatch, got %', gm; END IF;
+  IF stock <> 6 THEN RAISE EXCEPTION 'stock expected 6, got %', stock; END IF;
+END $$;
+
+INSERT INTO debtors (name) VALUES ('Analytics Debtor');
+INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
+SELECT id, 2, 300, 100, '2026-03-03T09:00:00Z' FROM products WHERE name = 'Analytics Test';
+INSERT INTO inventory_movements (product_id, type, quantity, reference_id, unit_cost, occurred_at)
+SELECT p.id, 'SALE', -2, s.id, 100, s.sold_at FROM products p JOIN sales s ON s.product_id = p.id WHERE p.name = 'Analytics Test' ORDER BY s.id DESC LIMIT 1;
+INSERT INTO credit_sales (sale_id, debtor_id, amount_due)
+SELECT s.id, d.id, 600 FROM sales s CROSS JOIN debtors d WHERE s.id = (SELECT MAX(id) FROM sales) AND d.name = 'Analytics Debtor';
+UPDATE products SET current_stock = 4 WHERE name = 'Analytics Test';
+
+INSERT INTO credit_payments (credit_sale_id, amount) SELECT id, 200 FROM credit_sales WHERE amount_due = 600;
+
+DO $$
+DECLARE outstanding numeric; paid numeric;
+BEGIN
+  SELECT total_paid, outstanding_balance INTO paid, outstanding FROM debtor_analytics WHERE name = 'Analytics Debtor';
+  IF paid <> 200 THEN RAISE EXCEPTION 'debtor paid expected 200, got %', paid; END IF;
+  IF outstanding <> 400 THEN RAISE EXCEPTION 'debtor outstanding expected 400, got %', outstanding; END IF;
+END $$;
+
+ROLLBACK;
