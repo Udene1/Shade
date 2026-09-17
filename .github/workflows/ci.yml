@@ -32,76 +32,47 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install dependencies
         run: npm install
-
       - name: Apply database schema and migrations
         env:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d shade_test -f db/schema.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/002_credit_integrity.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/003_inventory_valuation.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/004_inventory_valuation_indexes.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/005_fifo_allocation_hardening.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/006_inventory_event_time.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/007_integrity_views.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/008_analytics.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/009_inventory_attention.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/010_capital_productivity.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/011_inventory_decision_signals.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/012_transaction_integrity_triggers.sql
-          psql -h localhost -U postgres -d shade_test -f db/migrations/013_credit_integrity_constraints.sql
-
+          for migration in db/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f "$migration"; done
       - name: Test WAC/FIFO valuation
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/valuation.sql
-
       - name: Test transaction and credit integrity
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/integrity.sql
-
       - name: Test database transaction constraints
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/transaction_constraints.sql
-
       - name: Test credit constraints
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/credit_constraints.sql
-
       - name: Test analytics
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/analytics.sql
-
       - name: Test inventory attention and debt concentration
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/inventory_attention.sql
-
       - name: Test capital productivity
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/capital_productivity.sql
-
       - name: Test inventory decision signals
-        env:
-          PGPASSWORD: postgres
+        env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/inventory_decision_signals.sql
-
+      - name: Test kiosk operations
+        env: { PGPASSWORD: postgres }
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/kiosk_operations.sql
       - name: Lint
         run: npm run lint
-
       - name: Build application
         run: npm run build
         env:
