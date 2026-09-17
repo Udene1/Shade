@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   verify:
-    name: Build, type-check and valuation tests
+    name: Build, type-check and inventory integrity tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -51,11 +51,17 @@ jobs:
           psql -h localhost -U postgres -d shade_test -f db/migrations/004_inventory_valuation_indexes.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/005_fifo_allocation_hardening.sql
           psql -h localhost -U postgres -d shade_test -f db/migrations/006_inventory_event_time.sql
+          psql -h localhost -U postgres -d shade_test -f db/migrations/007_integrity_views.sql
 
       - name: Test WAC/FIFO valuation
         env:
           PGPASSWORD: postgres
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/valuation.sql
+
+      - name: Test transaction and credit integrity
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/integrity.sql
 
       - name: Lint
         run: npm run lint
