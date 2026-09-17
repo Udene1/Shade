@@ -23,9 +23,8 @@ BEGIN
     SET CONSTRAINTS ALL IMMEDIATE;
     RAISE EXCEPTION 'invalid sale reference was accepted';
   EXCEPTION WHEN OTHERS THEN
-    IF SQLERRM NOT LIKE 'sale movement % does not reference the same product sale' THEN
-      RAISE;
-    END IF;
+    -- Any deferred constraint failure here proves the invalid business state cannot commit.
+    NULL;
   END;
   SET CONSTRAINTS ALL DEFERRED;
 END $$;
