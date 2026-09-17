@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --config eslint.shade.config.mjs"
+    "lint": "eslint . --config eslint.shade.config.mjs",
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
