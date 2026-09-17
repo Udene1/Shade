@@ -20,8 +20,18 @@ DO $$ BEGIN
   IF (SELECT result->>'ok' FROM operation_requests WHERE id='00000000-0000-0000-0000-000000000001') <> 'true' THEN RAISE EXCEPTION 'operation result missing'; END IF;
 END $$;
 
-INSERT INTO day_closings (business_date, cash_sales, credit_sales, sales_revenue, units_sold, wac_gross_profit, fifo_gross_profit, stock_discrepancy_units, outstanding_debt)
-VALUES (CURRENT_DATE, 200, 0, 200, 2, 80, 80, 0, 0);
+-- Payment is deliberately outside the kiosk operation model.
+DO $$ BEGIN
+  BEGIN
+    INSERT INTO operation_requests (id, operation_type) VALUES ('00000000-0000-0000-0000-000000000002','CREDIT_PAYMENT');
+    RAISE EXCEPTION 'payment operation unexpectedly accepted';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+END $$;
+
+INSERT INTO day_closings (business_date, cash_sales, credit_sales, credit_payments, sales_revenue, units_sold, wac_gross_profit, fifo_gross_profit, stock_discrepancy_units, outstanding_debt)
+VALUES (CURRENT_DATE, 200, 0, 0, 200, 2, 80, 80, 0, 0);
 
 DO $$ BEGIN
   IF (SELECT COUNT(*) FROM day_closings WHERE business_date=CURRENT_DATE) <> 1 THEN RAISE EXCEPTION 'day closing missing'; END IF;
