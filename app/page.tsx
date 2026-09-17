@@ -10,10 +10,11 @@ type Velocity = { product_id: number; name: string; current_stock: number | stri
 type Attention = { product_id: number; name: string; current_stock: number | string; units_sold_30d: number | string; units_sold_90d: number | string; fifo_stock_cost: number | string; wac_stock_cost: number | string; attention_status: string };
 type Concentration = { name: string; outstanding_balance: number | string; outstanding_share: number | string; open_credit_sales: number };
 type CapitalProductivity = { fifo_gross_profit_30d: number | string; wac_gross_profit_30d: number | string; fifo_capital_in_stock: number | string; wac_capital_in_stock: number | string; fifo_gross_profit_per_current_stock_cost_30d: number | string | null; wac_gross_profit_per_current_stock_cost_30d: number | string | null };
+type DecisionSignal = { product_id: number; name: string; current_stock: number | string; units_sold_30d: number | string; units_sold_90d: number | string; units_per_day: number | string; stock_cover_days: number | string | null; inventory_turnover_units: number | string | null; fifo_gross_profit_30d: number | string; wac_gross_profit_30d: number | string; fifo_capital_in_stock: number | string; wac_capital_in_stock: number | string; fifo_gross_profit_per_current_stock_cost_30d: number | string | null; wac_gross_profit_per_current_stock_cost_30d: number | string | null; decision_signal: string; evidence: string };
 type DashboardMetrics = { revenue: number | string; cost: number | string; units: number | string; stock_value: number | string; valuation_method: string };
 
 async function getDashboard() {
-  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null };
+  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[] };
   try {
     const metricsRows = await sql`
       SELECT COALESCE((SELECT SUM(quantity * unit_price) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS revenue,
@@ -47,6 +48,15 @@ async function getDashboard() {
         fifo_gross_profit_per_current_stock_cost_30d, wac_gross_profit_per_current_stock_cost_30d
       FROM store_capital_productivity`;
     const capitalProductivity = (capitalProductivityRows[0] ?? null) as CapitalProductivity | null;
+    const decisionSignals = (await sql`
+      SELECT product_id, name, current_stock, units_sold_30d, units_sold_90d, units_per_day, stock_cover_days, inventory_turnover_units,
+        fifo_gross_profit_30d, wac_gross_profit_30d, fifo_capital_in_stock, wac_capital_in_stock,
+        fifo_gross_profit_per_current_stock_cost_30d, wac_gross_profit_per_current_stock_cost_30d,
+        decision_signal, evidence
+      FROM inventory_decision_signals
+      WHERE decision_signal <> 'MEASURED_NORMAL'
+      ORDER BY CASE decision_signal WHEN 'REPLENISHMENT_PRESSURE' THEN 1 WHEN 'CAPITAL_TIED_NO_DEMAND' THEN 2 WHEN 'CAPITAL_TIED_LOW_RECENT_DEMAND' THEN 3 WHEN 'SLOW_CAPITAL' THEN 4 ELSE 5 END, name
+      LIMIT 12`) as DecisionSignal[];
     const debts = (await sql`
       SELECT cs.id, d.name AS debtor_name, p.name AS product_name, cs.amount_due,
         COALESCE(SUM(cp.amount), 0)::numeric AS paid, (cs.amount_due - COALESCE(SUM(cp.amount), 0))::numeric AS balance
@@ -58,9 +68,9 @@ async function getDashboard() {
       FROM products p LEFT JOIN inventory_movements m ON m.product_id = p.id GROUP BY p.id
       HAVING p.current_stock <> COALESCE(SUM(m.quantity), 0) ORDER BY p.name`) as Reconciliation[];
     const outstanding = debts.reduce((sum, d) => sum + Number(d.balance), 0);
-    return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches, velocity, attention, concentration, capitalProductivity };
+    return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches, velocity, attention, concentration, capitalProductivity, decisionSignals };
   } catch {
-    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null };
+    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[] };
   }
 }
 
@@ -71,6 +81,7 @@ export default async function Home() {
   const measuredMovers = data.velocity.slice(0, 8);
   const idleStock = data.velocity.filter((p) => Number(p.current_stock) > 0 && Number(p.units_sold) === 0).slice(0, 8);
   const statusLabel: Record<string, string> = { LOW_STOCK: "Low stock", NO_SALES_30D: "No sales in 30d", DEAD_STOCK_90D: "No sales in 90d", SLOW_STOCK: "Slow stock" };
+  const decisionLabel: Record<string, string> = { REPLENISHMENT_PRESSURE: "Replenishment pressure", CAPITAL_TIED_NO_DEMAND: "Capital tied · no 90d demand", CAPITAL_TIED_LOW_RECENT_DEMAND: "Capital tied · no 30d demand", SLOW_CAPITAL: "Slow capital" };
   const capitalProductivity = data.capitalProductivity;
   const selectedCapitalProductivity = method === "FIFO" ? Number(capitalProductivity?.fifo_gross_profit_per_current_stock_cost_30d ?? 0) : Number(capitalProductivity?.wac_gross_profit_per_current_stock_cost_30d ?? 0);
   const selectedCapitalInStock = method === "FIFO" ? Number(capitalProductivity?.fifo_capital_in_stock ?? 0) : Number(capitalProductivity?.wac_capital_in_stock ?? 0);
@@ -85,6 +96,7 @@ export default async function Home() {
         <div className="card"><div className="metric-label">Money owed to me</div><div className="metric">₦{data.outstanding.toLocaleString()}</div></div>
       </section>
       {capitalProductivity && <section className="card section"><h2>30-day capital productivity ({method})</h2><div className="row"><div><strong>Gross profit / current stock cost</strong><div className="muted">₦{(method === "FIFO" ? Number(capitalProductivity.fifo_gross_profit_30d) : Number(capitalProductivity.wac_gross_profit_30d)).toLocaleString()} gross profit against ₦{selectedCapitalInStock.toLocaleString()} currently tied in stock</div></div><strong>{selectedCapitalProductivity.toFixed(2)}×</strong></div><p className="muted">This is a current-capital productivity ratio, not a historical inventory-return rate. It uses the selected WAC/FIFO valuation.</p></section>}
+      {data.decisionSignals.length > 0 && <section className="card section"><h2>Inventory signals from observed data</h2>{data.decisionSignals.map((p) => <div className="row" key={p.product_id}><div><strong>{p.name}</strong><div className="muted">{p.evidence} · {Number(p.units_sold_30d).toLocaleString()} sold in 30d · {p.stock_cover_days == null ? "no cover estimate" : `${Number(p.stock_cover_days).toFixed(1)} days cover`} · {method} capital productivity {Number(method === "FIFO" ? p.fifo_gross_profit_per_current_stock_cost_30d ?? 0 : p.wac_gross_profit_per_current_stock_cost_30d ?? 0).toFixed(2)}×</div></div><span>{decisionLabel[p.decision_signal] ?? p.decision_signal}</span></div>)}</section>}
       {data.lowStock.length > 0 && <section className="card section warning"><h2>Low stock</h2>{data.lowStock.map((p) => <div className="row" key={p.id}><strong>{p.name}</strong><span>{p.current_stock} left · minimum {p.minimum_stock}</span></div>)}</section>}
       <section className="card section"><h2>30-day sales velocity</h2>{measuredMovers.length === 0 ? <p className="muted">Record dated sales to measure product movement.</p> : measuredMovers.map((p) => <div className="row" key={p.product_id}><div><strong>{p.name}</strong><div className="muted">{Number(p.units_sold).toLocaleString()} sold · {Number(p.units_per_day).toFixed(2)} units/day · {p.stock_cover_days == null ? "no cover estimate" : `${Number(p.stock_cover_days).toFixed(1)} days of stock`}</div></div><strong>{p.inventory_turnover_units == null ? "—" : `${Number(p.inventory_turnover_units).toFixed(2)}×`}</strong></div>)}</section>
       {data.attention.length > 0 && <section className="card section"><h2>Inventory needing attention</h2>{data.attention.map((p) => <div className="row" key={p.product_id}><div><strong>{p.name}</strong><div className="muted">{Number(p.current_stock).toLocaleString()} units · {Number(p.units_sold_30d).toLocaleString()} sold in 30d · {Number(p.units_sold_90d).toLocaleString()} in 90d</div></div><span>{statusLabel[p.attention_status] ?? p.attention_status}</span></div>)}</section>}
