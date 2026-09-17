@@ -8,48 +8,39 @@ type Seller = { name: string; sold: number | string; revenue: number | string; p
 type Reconciliation = { id: number; name: string; current_stock: number; ledger_stock: number };
 type DashboardMetrics = { revenue: number | string; cost: number | string; units: number | string; stock_value: number | string; valuation_method: string };
 
-async function getDashboard() {
+aasync function getDashboard() {
   if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[] };
   try {
     const metricsRows = await sql`
-      SELECT
-        COALESCE((SELECT SUM(quantity * unit_price) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS revenue,
+      SELECT COALESCE((SELECT SUM(quantity * unit_price) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS revenue,
         COALESCE((SELECT SUM(CASE WHEN settings.method = 'FIFO' THEN c.fifo_cost ELSE c.wac_cost END)
           FROM sales s JOIN inventory_movements m ON m.reference_id = s.id AND m.type = 'SALE'
           JOIN inventory_sale_costs c ON c.movement_id = m.id CROSS JOIN inventory_valuation_settings settings
           WHERE s.sold_at >= CURRENT_DATE AND settings.id = 1), 0)::numeric AS cost,
         COALESCE((SELECT SUM(quantity) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::int AS units,
         COALESCE((SELECT SUM(selected_stock_cost) FROM inventory_valuation_selected), 0)::numeric AS stock_value,
-        (SELECT method FROM inventory_valuation_settings WHERE id = 1) AS valuation_method
-    `;
+        (SELECT method FROM inventory_valuation_settings WHERE id = 1) AS valuation_method`;
     const metrics = metricsRows[0] as DashboardMetrics;
     const products = (await sql`SELECT id, name, category, selling_price, current_stock, minimum_stock FROM products ORDER BY name`) as Product[];
-    const bestSellers = (await sql`
-      SELECT p.name, COALESCE(SUM(s.quantity), 0)::int AS sold,
-        COALESCE(SUM(s.quantity * s.unit_price), 0)::numeric AS revenue,
+    const sellerRows = await sql`
+      SELECT p.name, COALESCE(SUM(s.quantity), 0)::int AS sold, COALESCE(SUM(s.quantity * s.unit_price), 0)::numeric AS revenue,
         COALESCE(SUM(CASE WHEN settings.method = 'FIFO' THEN c.fifo_cost ELSE c.wac_cost END), 0)::numeric AS cost
-      FROM products p LEFT JOIN sales s ON s.product_id = p.id
-      LEFT JOIN inventory_movements m ON m.reference_id = s.id AND m.type = 'SALE'
-      LEFT JOIN inventory_sale_costs c ON c.movement_id = m.id
-      CROSS JOIN inventory_valuation_settings settings
-      GROUP BY p.id, settings.method ORDER BY sold DESC, cost ASC LIMIT 8
-    `) as (Seller & { cost: number | string })[];
-    const sellers = bestSellers.map((p) => ({ ...p, profit: Number(p.revenue) - Number((p as Seller & { cost: number | string }).cost) }));
+      FROM products p LEFT JOIN sales s ON s.product_id = p.id LEFT JOIN inventory_movements m ON m.reference_id = s.id AND m.type = 'SALE'
+      LEFT JOIN inventory_sale_costs c ON c.movement_id = m.id CROSS JOIN inventory_valuation_settings settings
+      GROUP BY p.id, settings.method ORDER BY sold DESC, cost ASC LIMIT 8`;
+    const bestSellers: Seller[] = sellerRows.map((p) => ({ name: String(p.name), sold: Number(p.sold), revenue: Number(p.revenue), profit: Number(p.revenue) - Number(p.cost) }));
     const debts = (await sql`
       SELECT cs.id, d.name AS debtor_name, p.name AS product_name, cs.amount_due,
-        COALESCE(SUM(cp.amount), 0)::numeric AS paid,
-        (cs.amount_due - COALESCE(SUM(cp.amount), 0))::numeric AS balance
+        COALESCE(SUM(cp.amount), 0)::numeric AS paid, (cs.amount_due - COALESCE(SUM(cp.amount), 0))::numeric AS balance
       FROM credit_sales cs JOIN debtors d ON d.id = cs.debtor_id JOIN sales s ON s.id = cs.sale_id JOIN products p ON p.id = s.product_id
       LEFT JOIN credit_payments cp ON cp.credit_sale_id = cs.id GROUP BY cs.id, d.name, p.name, cs.amount_due
-      HAVING cs.amount_due - COALESCE(SUM(cp.amount), 0) > 0 ORDER BY cs.created_at ASC
-    `) as Debt[];
+      HAVING cs.amount_due - COALESCE(SUM(cp.amount), 0) > 0 ORDER BY cs.created_at ASC`) as Debt[];
     const mismatches = (await sql`
       SELECT p.id, p.name, p.current_stock::int AS current_stock, COALESCE(SUM(m.quantity), 0)::int AS ledger_stock
-      FROM products p LEFT JOIN inventory_movements m ON m.product_id = p.id
-      GROUP BY p.id HAVING p.current_stock <> COALESCE(SUM(m.quantity), 0) ORDER BY p.name
-    `) as Reconciliation[];
+      FROM products p LEFT JOIN inventory_movements m ON m.product_id = p.id GROUP BY p.id
+      HAVING p.current_stock <> COALESCE(SUM(m.quantity), 0) ORDER BY p.name`) as Reconciliation[];
     const outstanding = debts.reduce((sum, d) => sum + Number(d.balance), 0);
-    return { connected: true, metrics, products, bestSellers: sellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches };
+    return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches };
   } catch {
     return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[] };
   }
@@ -57,19 +48,11 @@ async function getDashboard() {
 
 export default async function Home() {
   const data = await getDashboard();
-  const revenue = Number(data.metrics?.revenue ?? 0);
-  const cost = Number(data.metrics?.cost ?? 0);
-  const profit = revenue - cost;
-  const units = Number(data.metrics?.units ?? 0);
-  const stockValue = Number(data.metrics?.stock_value ?? 0);
-  const method = data.metrics?.valuation_method ?? "WAC";
-
+  const revenue = Number(data.metrics?.revenue ?? 0), cost = Number(data.metrics?.cost ?? 0), profit = revenue - cost;
+  const units = Number(data.metrics?.units ?? 0), stockValue = Number(data.metrics?.stock_value ?? 0), method = data.metrics?.valuation_method ?? "WAC";
   return (
     <main>
-      <header className="header">
-        <div><h1>Shade</h1><p>Stock, sales and the money tied up in your kiosk.</p></div>
-        <span className="badge">{data.connected ? "Database connected" : "Database not configured"}</span>
-      </header>
+      <header className="header"><div><h1>Shade</h1><p>Stock, sales and the money tied up in your kiosk.</p></div><span className="badge">{data.connected ? "Database connected" : "Database not configured"}</span></header>
       <section className="grid">
         <div className="card"><div className="metric-label">Today&apos;s sales</div><div className="metric">₦{revenue.toLocaleString()}</div></div>
         <div className="card"><div className="metric-label">Gross profit ({method})</div><div className="metric">₦{profit.toLocaleString()}</div></div>
