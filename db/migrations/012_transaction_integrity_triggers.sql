@@ -7,7 +7,11 @@ DECLARE
   current_stock_value INTEGER;
   ledger_stock_value INTEGER;
 BEGIN
-  product_id_to_check := COALESCE(NEW.product_id, OLD.product_id);
+  IF TG_TABLE_NAME = 'products' THEN
+    product_id_to_check := NEW.id;
+  ELSE
+    product_id_to_check := COALESCE(NEW.product_id, OLD.product_id);
+  END IF;
 
   SELECT current_stock INTO current_stock_value
   FROM products
