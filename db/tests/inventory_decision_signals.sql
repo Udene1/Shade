@@ -29,15 +29,16 @@ DO $$
 DECLARE
   pressure_signal text;
   pressure_demand text;
-  pressure_capital text;
+  pressure_fifo_capital text;
+  pressure_wac_capital text;
   idle_signal text;
   idle_demand text;
   slow_signal text;
   slow_demand text;
   pressure_margin numeric;
 BEGIN
-  SELECT decision_signal, demand_state, capital_state, wac_gross_margin_30d
-    INTO pressure_signal, pressure_demand, pressure_capital, pressure_margin
+  SELECT decision_signal, demand_state, fifo_capital_state, wac_capital_state, wac_gross_margin_30d
+    INTO pressure_signal, pressure_demand, pressure_fifo_capital, pressure_wac_capital, pressure_margin
   FROM inventory_decision_signals WHERE name = 'Pressure Product';
   SELECT decision_signal, demand_state INTO idle_signal, idle_demand
   FROM inventory_decision_signals WHERE name = 'Idle Product';
@@ -50,8 +51,8 @@ BEGIN
   IF pressure_demand <> 'FAST_RELATIVE_TO_STOCK' THEN
     RAISE EXCEPTION 'expected fast relative to stock demand, got %', pressure_demand;
   END IF;
-  IF pressure_capital <> 'HIGH_30D_PRODUCTIVITY' THEN
-    RAISE EXCEPTION 'expected high capital productivity, got %', pressure_capital;
+  IF pressure_fifo_capital <> 'HIGH_30D_PRODUCTIVITY' OR pressure_wac_capital <> 'HIGH_30D_PRODUCTIVITY' THEN
+    RAISE EXCEPTION 'expected both valuation capital states to be high, got FIFO %, WAC %', pressure_fifo_capital, pressure_wac_capital;
   END IF;
   IF pressure_margin IS NULL OR pressure_margin <= 0 THEN
     RAISE EXCEPTION 'expected positive WAC gross margin, got %', pressure_margin;
