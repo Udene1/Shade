@@ -13,9 +13,19 @@ function Result({ state }: { state: ActionState }) {
   return <p className={state.ok ? "success" : "error"}>{state.message}</p>;
 }
 
-export function InventoryControls({ method, mismatches }: { method: string; mismatches: Reconciliation[] }) {
+export function InventoryControls({
+  method,
+  products,
+  mismatches,
+}: {
+  method: string;
+  products: Product[];
+  mismatches: Reconciliation[];
+}) {
   const [methodState, methodAction, methodPending] = useActionState(setValuationMethod, initial);
   const [adjustState, adjustAction, adjustPending] = useActionState(recordStockAdjustment, initial);
+  const mismatchById = new Map(mismatches.map((item) => [item.id, item]));
+
   return (
     <>
       <section className="card section">
@@ -30,19 +40,26 @@ export function InventoryControls({ method, mismatches }: { method: string; mism
         </form>
         <Result state={methodState} />
       </section>
+
       <section className="card section">
         <h2>Stock reconciliation</h2>
-        <p className="muted">Count the physical stock. Any difference becomes an explicit adjustment in the inventory ledger.</p>
-        {mismatches.length === 0 ? <p className="success">Operational stock matches the inventory ledger.</p> : mismatches.map((p) => (
-          <form action={adjustAction} className="form" key={p.id}>
-            <strong>{p.name}</strong>
-            <div className="muted">System: {p.current_stock} · Ledger: {p.ledger_stock}</div>
-            <input type="hidden" name="product_id" value={p.id} />
-            <label>Actual count<input name="actual_stock" type="number" min="0" inputMode="numeric" defaultValue={p.current_stock} required /></label>
-            <label>Reason<input name="reason" placeholder="e.g. damaged / missing / recount" required /></label>
-            <button type="submit" disabled={adjustPending}>{adjustPending ? "Reconciling…" : "RECONCILE STOCK"}</button>
-          </form>
-        ))}
+        <p className="muted">Count physical stock whenever you want. A difference becomes an explicit adjustment in the inventory ledger; a matching count records no fake movement.</p>
+        {products.length === 0 ? <p className="muted">Add a product before counting stock.</p> : products.map((p) => {
+          const mismatch = mismatchById.get(p.id);
+          return (
+            <form action={adjustAction} className="form" key={p.id}>
+              <strong>{p.name}</strong>
+              <div className={mismatch ? "warning" : "muted"}>
+                System: {p.current_stock} · Ledger: {mismatch?.ledger_stock ?? p.current_stock}
+                {mismatch ? " · mismatch" : " · reconciled"}
+              </div>
+              <input type="hidden" name="product_id" value={p.id} />
+              <label>Actual count<input name="actual_stock" type="number" min="0" inputMode="numeric" defaultValue={p.current_stock} required /></label>
+              <label>Reason<input name="reason" placeholder="e.g. daily count / damaged / missing" required /></label>
+              <button type="submit" disabled={adjustPending}>{adjustPending ? "Reconciling…" : "RECONCILE STOCK"}</button>
+            </form>
+          );
+        })}
         <Result state={adjustState} />
       </section>
     </>
