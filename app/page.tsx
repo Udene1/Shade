@@ -1,22 +1,39 @@
 import { sql } from "@/lib/db";
 import { KioskActions } from "@/app/components/KioskActions";
 
-type Product = { id: number; name: string; category: string | null; selling_price: number; current_stock: number; minimum_stock: number };
-type Debt = { id: number; debtor_name: string; product_name: string; amount_due: number; paid: number; balance: number };
+type Product = { id: number; name: string; category: string | null; selling_price: number | string; current_stock: number | string; minimum_stock: number | string };
+type Debt = { id: number; debtor_name: string; product_name: string; amount_due: number | string; paid: number | string; balance: number | string };
+type Seller = { name: string; sold: number | string; revenue: number | string; profit: number | string };
+
+type DashboardMetrics = { revenue: number | string; cost: number | string; units: number | string; stock_value: number | string };
 
 async function getDashboard() {
-  if (!process.env.DATABASE_URL) return { connected: false, metrics: null, products: [] as Product[], bestSellers: [], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0 };
+  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0 };
   try {
-    const metrics = await sql`
+    const metricsRows = await sql`
       SELECT
         COALESCE((SELECT SUM(quantity * unit_price) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS revenue,
         COALESCE((SELECT SUM(quantity * unit_cost) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS cost,
         COALESCE((SELECT SUM(quantity) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::int AS units,
         COALESCE((SELECT SUM(current_stock * selling_price) FROM products), 0)::numeric AS stock_value
     `;
-    const products = await sql<Product[]>`SELECT id, name, category, selling_price, current_stock, minimum_stock FROM products ORDER BY name`;
-    const bestSellers = await sql`SELECT p.name, COALESCE(SUM(s.quantity), 0)::int AS sold, COALESCE(SUM(s.quantity * s.unit_price), 0)::numeric AS revenue, COALESCE(SUM(s.quantity * (s.unit_price - s.unit_cost)), 0)::numeric AS profit FROM products p LEFT JOIN sales s ON s.product_id = p.id GROUP BY p.id ORDER BY sold DESC, profit DESC LIMIT 8`;
-    const debts = await sql<Debt[]>`
+    const metrics = metricsRows[0] as DashboardMetrics;
+    const products = (await sql`
+      SELECT id, name, category, selling_price, current_stock, minimum_stock
+      FROM products ORDER BY name
+    `) as Product[];
+    const bestSellers = (await sql`
+      SELECT p.name,
+             COALESCE(SUM(s.quantity), 0)::int AS sold,
+             COALESCE(SUM(s.quantity * s.unit_price), 0)::numeric AS revenue,
+             COALESCE(SUM(s.quantity * (s.unit_price - s.unit_cost)), 0)::numeric AS profit
+      FROM products p
+      LEFT JOIN sales s ON s.product_id = p.id
+      GROUP BY p.id
+      ORDER BY sold DESC, profit DESC
+      LIMIT 8
+    `) as Seller[];
+    const debts = (await sql`
       SELECT cs.id, d.name AS debtor_name, p.name AS product_name,
              cs.amount_due,
              COALESCE(SUM(cp.amount), 0)::numeric AS paid,
@@ -29,11 +46,11 @@ async function getDashboard() {
       GROUP BY cs.id, d.name, p.name, cs.amount_due
       HAVING cs.amount_due - COALESCE(SUM(cp.amount), 0) > 0
       ORDER BY cs.created_at ASC
-    `;
+    `) as Debt[];
     const outstanding = debts.reduce((sum, d) => sum + Number(d.balance), 0);
-    return { connected: true, metrics: metrics[0], products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding };
+    return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding };
   } catch {
-    return { connected: false, metrics: null, products: [] as Product[], bestSellers: [], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0 };
+    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0 };
   }
 }
 
@@ -44,9 +61,13 @@ export default async function Home() {
   const profit = revenue - cost;
   const units = Number(data.metrics?.units ?? 0);
   const stockValue = Number(data.metrics?.stock_value ?? 0);
+
   return (
     <main>
-      <header className="header"><div><h1>Shade</h1><p>Stock, sales and the money tied up in your kiosk.</p></div><span className="badge">{data.connected ? "Database connected" : "Database not configured"}</span></header>
+      <header className="header">
+        <div><h1>Shade</h1><p>Stock, sales and the money tied up in your kiosk.</p></div>
+        <span className="badge">{data.connected ? "Database connected" : "Database not configured"}</span>
+      </header>
       <section className="grid">
         <div className="card"><div className="metric-label">Today&apos;s sales</div><div className="metric">₦{revenue.toLocaleString()}</div></div>
         <div className="card"><div className="metric-label">Gross profit</div><div className="metric">₦{profit.toLocaleString()}</div></div>
@@ -56,7 +77,7 @@ export default async function Home() {
       </section>
       {data.lowStock.length > 0 && <section className="card section warning"><h2>Low stock</h2>{data.lowStock.map((p) => <div className="row" key={p.id}><strong>{p.name}</strong><span>{p.current_stock} left · minimum {p.minimum_stock}</span></div>)}</section>}
       <section className="card section"><h2>Best sellers</h2>{data.bestSellers.length === 0 ? <p className="muted">Record sales to see which products move fastest.</p> : data.bestSellers.map((p) => <div className="row" key={p.name}><div><strong>{p.name}</strong><div className="muted">{p.sold} sold · ₦{Number(p.revenue).toLocaleString()} revenue</div></div><strong>₦{Number(p.profit).toLocaleString()}</strong></div>)}</section>
-      <KioskActions products={data.products} debts={data.debts} />
+      <KioskActions products={data.products.map((p) => ({ id: Number(p.id), name: p.name, selling_price: Number(p.selling_price), current_stock: Number(p.current_stock) }))} debts={data.debts.map((d) => ({ ...d, id: Number(d.id) }))} />
     </main>
   );
 }
