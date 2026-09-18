@@ -48,7 +48,7 @@ async function getDashboard() {
     const outstanding = debts.reduce((sum, d) => sum + Number(d.balance), 0);
     return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches, velocity, attention, concentration, capitalProductivity, decisionSignals, healthChecks };
   } catch {
-    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[] };
+    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[], healthChecks: [] as HealthCheck[] };
   }
 }
 
