@@ -15,7 +15,7 @@ type DecisionSignal = { product_id: number; name: string; current_stock: number 
 type DashboardMetrics = { revenue: number | string; cost: number | string; units: number | string; stock_value: number | string; valuation_method: string };\ntype HealthCheck = { check_name: string; status: string; detail: string };
 
 async function getDashboard() {
-  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[] };
+  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[], healthChecks: [] as HealthCheck[] };
   try {
     const metricsRows = await sql`
       SELECT COALESCE((SELECT SUM(quantity * unit_price) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS revenue,
