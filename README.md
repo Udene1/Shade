@@ -28,3 +28,20 @@ A kiosk operator must be able to record products, purchases and sales and later 
 ## Verification
 
 CI provisions PostgreSQL, applies the schema and migrations, runs real database valuation/reconciliation tests, then runs lint and the production build. There are no mock inventory calculations in the verification path.
+
+
+## Backup and restore
+
+Use **BACK UP DATA** on the operations page to export the complete business ledger, valuation setting, and a live data-health snapshot as JSON.
+
+A restore is deliberately a command-line operation because it replaces the database contents:
+
+```bash
+npm run db:restore -- shade-backup-YYYY-MM-DD.json CONFIRM
+```
+
+The restore validates the backup shape, loads all ledger tables in dependency order inside one transaction, and requires the explicit `CONFIRM` argument.
+
+## Release rule
+
+Shade's practical MVP is intended for real kiosk use. After the release hardening checks pass, feature work stops and real-use bugs become the next source of changes.

@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db";
 import { KioskActions } from "@/app/components/KioskActions";
 import { InventoryControls } from "@/app/components/InventoryControls";
+import { DataHealth } from "@/app/components/DataHealth";
 
 type Product = { id: number; name: string; category: string | null; selling_price: number | string; current_stock: number | string; minimum_stock: number | string };
 type Debt = { id: number; debtor_name: string; product_name: string; amount_due: number | string; paid: number | string; balance: number | string };
@@ -12,9 +13,10 @@ type Concentration = { name: string; outstanding_balance: number | string; outst
 type CapitalProductivity = { fifo_gross_profit_30d: number | string; wac_gross_profit_30d: number | string; fifo_capital_in_stock: number | string; wac_capital_in_stock: number | string; fifo_gross_profit_per_current_stock_cost_30d: number | string | null; wac_gross_profit_per_current_stock_cost_30d: number | string | null };
 type DecisionSignal = { product_id: number; name: string; current_stock: number | string; units_sold_30d: number | string; units_sold_90d: number | string; units_per_day: number | string; stock_cover_days: number | string | null; inventory_turnover_units: number | string | null; fifo_gross_profit_30d: number | string; wac_gross_profit_30d: number | string; fifo_capital_in_stock: number | string; wac_capital_in_stock: number | string; fifo_gross_profit_per_current_stock_cost_30d: number | string | null; wac_gross_profit_per_current_stock_cost_30d: number | string | null; decision_signal: string; evidence: string };
 type DashboardMetrics = { revenue: number | string; cost: number | string; units: number | string; stock_value: number | string; valuation_method: string };
+type HealthCheck = { check_name: string; status: string; detail: string };
 
 async function getDashboard() {
-  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[] };
+  if (!process.env.DATABASE_URL) return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[], healthChecks: [] as HealthCheck[] };
   try {
     const metricsRows = await sql`
       SELECT COALESCE((SELECT SUM(quantity * unit_price) FROM sales WHERE sold_at >= CURRENT_DATE), 0)::numeric AS revenue,
@@ -40,12 +42,13 @@ async function getDashboard() {
     const capitalProductivityRows = await sql`SELECT fifo_gross_profit_30d, wac_gross_profit_30d, fifo_capital_in_stock, wac_capital_in_stock, fifo_gross_profit_per_current_stock_cost_30d, wac_gross_profit_per_current_stock_cost_30d FROM store_capital_productivity`;
     const capitalProductivity = (capitalProductivityRows[0] ?? null) as CapitalProductivity | null;
     const decisionSignals = (await sql`SELECT product_id, name, current_stock, units_sold_30d, units_sold_90d, units_per_day, stock_cover_days, inventory_turnover_units, fifo_gross_profit_30d, wac_gross_profit_30d, fifo_capital_in_stock, wac_capital_in_stock, fifo_gross_profit_per_current_stock_cost_30d, wac_gross_profit_per_current_stock_cost_30d, decision_signal, evidence FROM inventory_decision_signals WHERE decision_signal <> 'MEASURED_NORMAL' ORDER BY CASE decision_signal WHEN 'REPLENISHMENT_PRESSURE' THEN 1 WHEN 'CAPITAL_TIED_NO_DEMAND' THEN 2 WHEN 'CAPITAL_TIED_LOW_RECENT_DEMAND' THEN 3 WHEN 'SLOW_CAPITAL' THEN 4 ELSE 5 END, name LIMIT 12`) as DecisionSignal[];
+    const healthChecks = (await sql`SELECT check_name, status, detail FROM shade_data_health ORDER BY CASE status WHEN 'ERROR' THEN 1 WHEN 'WARNING' THEN 2 ELSE 3 END, check_name`) as HealthCheck[];
     const debts = (await sql`SELECT cs.id, d.name AS debtor_name, p.name AS product_name, cs.amount_due, COALESCE(SUM(cp.amount), 0)::numeric AS paid, (cs.amount_due - COALESCE(SUM(cp.amount), 0))::numeric AS balance FROM credit_sales cs JOIN debtors d ON d.id = cs.debtor_id JOIN sales s ON s.id = cs.sale_id JOIN products p ON p.id = s.product_id LEFT JOIN credit_payments cp ON cp.credit_sale_id = cs.id GROUP BY cs.id, d.name, p.name, cs.amount_due HAVING cs.amount_due - COALESCE(SUM(cp.amount), 0) > 0 ORDER BY cs.created_at ASC`) as Debt[];
     const mismatches = (await sql`SELECT p.id, p.name, p.current_stock::int AS current_stock, COALESCE(SUM(m.quantity), 0)::int AS ledger_stock FROM products p LEFT JOIN inventory_movements m ON m.product_id = p.id GROUP BY p.id HAVING p.current_stock <> COALESCE(SUM(m.quantity), 0) ORDER BY p.name`) as Reconciliation[];
     const outstanding = debts.reduce((sum, d) => sum + Number(d.balance), 0);
-    return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches, velocity, attention, concentration, capitalProductivity, decisionSignals };
+    return { connected: true, metrics, products, bestSellers, lowStock: products.filter((p) => Number(p.current_stock) <= Number(p.minimum_stock)), debts, outstanding, mismatches, velocity, attention, concentration, capitalProductivity, decisionSignals, healthChecks };
   } catch {
-    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[] };
+    return { connected: false, metrics: null as DashboardMetrics | null, products: [] as Product[], bestSellers: [] as Seller[], lowStock: [] as Product[], debts: [] as Debt[], outstanding: 0, mismatches: [] as Reconciliation[], velocity: [] as Velocity[], attention: [] as Attention[], concentration: [] as Concentration[], capitalProductivity: null as CapitalProductivity | null, decisionSignals: [] as DecisionSignal[], healthChecks: [] as HealthCheck[] };
   }
 }
 
@@ -78,6 +81,7 @@ export default async function Home() {
       {idleStock.length > 0 && <section className="card section"><h2>No sales in 30 days</h2>{idleStock.map((p) => <div className="row" key={p.product_id}><div><strong>{p.name}</strong><div className="muted">{Number(p.current_stock).toLocaleString()} units currently held</div></div><span className="muted">₦{Number(p.revenue).toLocaleString()}</span></div>)}</section>}
       {data.concentration.length > 0 && <section className="card section"><h2>Debtor concentration</h2>{data.concentration.map((d) => <div className="row" key={d.name}><div><strong>{d.name}</strong><div className="muted">{d.open_credit_sales} open credit sale{d.open_credit_sales === 1 ? "" : "s"}</div></div><strong>₦{Number(d.outstanding_balance).toLocaleString()} · {(Number(d.outstanding_share) * 100).toFixed(1)}%</strong></div>)}</section>}
       <section className="card section"><h2>Best sellers</h2>{data.bestSellers.length === 0 ? <p className="muted">Record sales to see which products move fastest.</p> : data.bestSellers.map((p) => <div className="row" key={p.name}><div><strong>{p.name}</strong><div className="muted">{p.sold} sold · ₦{Number(p.revenue).toLocaleString()} revenue</div></div><strong>₦{Number(p.profit).toLocaleString()}</strong></div>)}</section>
+      <DataHealth checks={data.healthChecks} />
       <InventoryControls method={method} products={data.products.map((p) => ({ id: Number(p.id), name: p.name, current_stock: Number(p.current_stock) }))} mismatches={data.mismatches} />
       <KioskActions products={data.products.map((p) => ({ id: Number(p.id), name: p.name, category: p.category, selling_price: Number(p.selling_price), current_stock: Number(p.current_stock), minimum_stock: Number(p.minimum_stock) }))} debts={data.debts.map((d) => ({ ...d, id: Number(d.id) }))} />
     </main>

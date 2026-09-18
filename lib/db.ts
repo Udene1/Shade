@@ -1,3 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 
-export const sql = neon(process.env.DATABASE_URL ?? "");
+let cachedSql: ReturnType<typeof neon> | null = null;
+
+export const sql = ((strings: TemplateStringsArray, ...values: unknown[]): Promise<Record<string, unknown>[]> => {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is required for database access.");
+  cachedSql ??= neon(connectionString);
+  return cachedSql(strings, ...values) as Promise<Record<string, unknown>[]>;
+});

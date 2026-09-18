@@ -1,3 +1,5 @@
+BEGIN;
+
 TRUNCATE credit_payments, credit_sales, sales, inventory_movements, purchases, debtors, products RESTART IDENTITY CASCADE;
 
 INSERT INTO products (name, category, selling_price, current_stock, minimum_stock)
@@ -11,19 +13,19 @@ SELECT id, CASE name WHEN 'Pressure Product' THEN 10 ELSE 20 END, 50, 'Signal Su
 FROM products;
 
 INSERT INTO inventory_movements (product_id, type, quantity, reference_id, occurred_at, unit_cost)
-SELECT id, 'PURCHASE', CASE name WHEN 'Pressure Product' THEN 10 ELSE 20 END, NULL, NOW() - INTERVAL '60 days', 50
-FROM products;
+SELECT p.id, 'PURCHASE', pu.quantity, pu.id, pu.purchased_at, pu.unit_cost
+FROM products p JOIN purchases pu ON pu.product_id = p.id;
 
 INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
-SELECT id, CASE name WHEN 'Pressure Product' THEN 7 ELSE 0 END, selling_price, 50, NOW() - INTERVAL '5 days'
-FROM products WHERE name IN ('Pressure Product', 'Idle Product');
+SELECT id, 7, selling_price, 50, NOW() - INTERVAL '5 days' FROM products WHERE name = 'Pressure Product';
+INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
+SELECT id, 5, selling_price, 50, NOW() - INTERVAL '45 days' FROM products WHERE name = 'Idle Product';
 
 INSERT INTO inventory_movements (product_id, type, quantity, reference_id, occurred_at, unit_cost)
-SELECT p.id, 'SALE', -7, s.id, s.sold_at, 50
-FROM sales s JOIN products p ON p.id = s.product_id
-WHERE p.name = 'Pressure Product';
+SELECT p.id, 'SALE', -s.quantity, s.id, s.sold_at, s.unit_cost
+FROM sales s JOIN products p ON p.id = s.product_id;
 
-UPDATE products SET current_stock = CASE name WHEN 'Pressure Product' THEN 3 ELSE 20 END;
+UPDATE products SET current_stock = CASE name WHEN 'Pressure Product' THEN 3 WHEN 'Idle Product' THEN 15 ELSE 20 END;
 
 DO $$
 DECLARE
@@ -70,3 +72,5 @@ BEGIN
     RAISE EXCEPTION 'expected no 90d sales, got %', slow_demand;
   END IF;
 END $$;
+
+ROLLBACK;
