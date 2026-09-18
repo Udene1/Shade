@@ -11,8 +11,8 @@ SELECT id, CASE name WHEN 'Pressure Product' THEN 10 ELSE 20 END, 50, 'Signal Su
 FROM products;
 
 INSERT INTO inventory_movements (product_id, type, quantity, reference_id, occurred_at, unit_cost)
-SELECT id, 'PURCHASE', CASE name WHEN 'Pressure Product' THEN 10 ELSE 20 END, NULL, NOW() - INTERVAL '60 days', 50
-FROM products;
+SELECT p.id, 'PURCHASE', pu.quantity, pu.id, pu.purchased_at, pu.unit_cost
+FROM products p JOIN purchases pu ON pu.product_id = p.id;
 
 INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
 SELECT id, CASE name WHEN 'Pressure Product' THEN 7 ELSE 0 END, selling_price, 50, NOW() - INTERVAL '5 days'
