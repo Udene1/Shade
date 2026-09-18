@@ -8,7 +8,7 @@ export async function GET() {
   }
 
   try {
-    const [products, purchases, sales, movements, debtors, creditSales, creditPayments, operationRequests, closings] = await Promise.all([
+    const [products, purchases, sales, movements, debtors, creditSales, creditPayments, operationRequests, closings, valuationSettings, health] = await Promise.all([
       sql`SELECT * FROM products ORDER BY id`,
       sql`SELECT * FROM purchases ORDER BY id`,
       sql`SELECT * FROM sales ORDER BY id`,
@@ -17,7 +17,7 @@ export async function GET() {
       sql`SELECT * FROM credit_sales ORDER BY id`,
       sql`SELECT * FROM credit_payments ORDER BY id`,
       sql`SELECT * FROM operation_requests ORDER BY created_at, id`,
-      sql`SELECT * FROM day_closings ORDER BY business_date`,
+      sql`SELECT * FROM day_closings ORDER BY business_date`,\n      sql`SELECT * FROM inventory_valuation_settings WHERE id = 1`,\n      sql`SELECT check_name, status, detail FROM shade_data_health ORDER BY check_name`,
     ]);
 
     const backup = {
@@ -31,7 +31,7 @@ export async function GET() {
       credit_sales: creditSales,
       credit_payments: creditPayments,
       operation_requests: operationRequests,
-      day_closings: closings,
+      day_closings: closings,\n      inventory_valuation_settings: valuationSettings,\n      health_snapshot: health,
     };
 
     return new Response(JSON.stringify(backup, null, 2), {
