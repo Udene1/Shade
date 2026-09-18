@@ -1,3 +1,5 @@
+BEGIN;
+
 TRUNCATE credit_payments, credit_sales, sales, inventory_movements, purchases, debtors, products RESTART IDENTITY CASCADE;
 
 INSERT INTO products (name, category, selling_price, current_stock, minimum_stock)
@@ -70,3 +72,5 @@ BEGIN
     RAISE EXCEPTION 'expected no 90d sales, got %', slow_demand;
   END IF;
 END $$;
+
+ROLLBACK;
