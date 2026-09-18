@@ -10,7 +10,7 @@ function nonNegativeMoney(value: string) { const n = Number(value); return Numbe
 function operationId(formData: FormData) { const value = text(formData, "operation_id"); return value || crypto.randomUUID(); }
 
 async function existingOperation(id: string): Promise<ActionState | null> {
-  const rows = await sql`SELECT result FROM operation_requests WHERE id = ${id}::uuid`;
+  const rows = await sql`SELECT result FROM operation_requests WHERE id = ${id}::uuid` as Array<{ result: ActionState | null }>;
   if (!rows.length) return null;
   const result = rows[0].result as ActionState | null;
   return result ?? { ok: false, message: "This operation is still being processed. Refresh and check transaction history before retrying." };
