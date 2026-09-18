@@ -18,7 +18,7 @@ FROM products p JOIN purchases pu ON pu.product_id = p.id;
 
 INSERT INTO sales (product_id, quantity, unit_price, unit_cost, sold_at)
 SELECT id, CASE name WHEN 'Pressure Product' THEN 7 ELSE 0 END, selling_price, 50, NOW() - INTERVAL '5 days'
-FROM products WHERE name IN ('Pressure Product', 'Idle Product');
+FROM products WHERE name = 'Pressure Product';
 
 INSERT INTO inventory_movements (product_id, type, quantity, reference_id, occurred_at, unit_cost)
 SELECT p.id, 'SALE', -7, s.id, s.sold_at, 50
