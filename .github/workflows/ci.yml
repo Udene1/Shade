@@ -68,6 +68,9 @@ jobs:
       - name: Test inventory decision signals
         env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/inventory_decision_signals.sql
+      - name: Test data health
+        env: { PGPASSWORD: postgres }
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/data_health.sql
       - name: Test kiosk operations
         env: { PGPASSWORD: postgres }
         run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d shade_test -f db/tests/kiosk_operations.sql
