@@ -1,15 +1,20 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createProduct, recordCreditSale, recordPurchase, recordSale, updateProduct, type ActionState } from "@/app/actions";
 
 type Product = { id: number; name: string; category?: string | null; selling_price: number; current_stock: number; minimum_stock?: number };
 const initial: ActionState = { ok: false, message: "" };
+
 function Result({ state }: { state: ActionState }) {
   return state.message ? <p className={state.ok ? "success" : "error"}>{state.message}</p> : null;
 }
-function OpId() {
-  const [id] = useState(() => crypto.randomUUID());
+
+function OpId({ resetKey }: { resetKey: string }) {
+  const [id, setId] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (resetKey) setId(crypto.randomUUID());
+  }, [resetKey]);
   return <input type="hidden" name="operation_id" value={id} />;
 }
 
@@ -63,7 +68,7 @@ export function KioskActions({ products, debts: _debts }: { products: Product[];
               {visible.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.current_stock} in stock · ₦{p.selling_price.toLocaleString()}</option>)}
             </select></label>
             <label>Quantity<input name="quantity" type="number" min="1" inputMode="numeric" defaultValue="1" required /></label>
-            <OpId />
+            <OpId resetKey={`${saleState.ok}:${saleState.message}`} />
             <button type="submit" disabled={salePending}>{salePending ? "Recording…" : "SELL NOW"}</button>
             <Result state={saleState} />
           </form>
@@ -85,7 +90,7 @@ export function KioskActions({ products, debts: _debts }: { products: Product[];
             <label>Debtor name<input name="debtor_name" placeholder="Who owes you?" required /></label>
             <label>Phone <span className="muted">(optional)</span><input name="debtor_phone" inputMode="tel" /></label>
             <label>Note <span className="muted">(optional)</span><input name="debtor_note" placeholder="e.g. pay Friday" /></label>
-            <OpId />
+            <OpId resetKey={`${creditState.ok}:${creditState.message}`} />
             <button type="submit" disabled={creditPending}>{creditPending ? "Recording…" : "RECORD CREDIT SALE"}</button>
             <Result state={creditState} />
           </form>
@@ -107,7 +112,7 @@ export function KioskActions({ products, debts: _debts }: { products: Product[];
               <label>Unit cost<input name="unit_cost" type="number" min="0" step="0.01" inputMode="decimal" required /></label>
             </div>
             <label>Supplier <span className="muted">(optional)</span><input name="supplier" /></label>
-            <OpId />
+            <OpId resetKey={`${purchaseState.ok}:${purchaseState.message}`} />
             <button type="submit" disabled={purchasePending}>{purchasePending ? "Recording…" : "RECORD PURCHASE"}</button>
             <Result state={purchaseState} />
           </form>
@@ -116,7 +121,7 @@ export function KioskActions({ products, debts: _debts }: { products: Product[];
 
       <section className="card section">
         <h2>Manage products</h2>
-        <p className="muted">Change today&apos;s selling price or stock threshold without changing historical transactions.</p>
+        <p className="muted">Change today's selling price or stock threshold without changing historical transactions.</p>
         {products.map((p) => (
           <form action={updateAction} className="form" key={p.id}>
             <input type="hidden" name="product_id" value={p.id} />
