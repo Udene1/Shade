@@ -18,7 +18,7 @@ function OpId({ resetKey }: { resetKey: string }) {
   return <input type="hidden" name="operation_id" value={id} />;
 }
 
-export function KioskActions({ products, debts: _debts }: { products: Product[]; debts?: unknown[] }) {
+export function KioskActions({ products }: { products: Product[]; debts?: unknown[] }) {
   const [query, setQuery] = useState("");
   const [saleState, saleAction, salePending] = useActionState(recordSale, initial);
   const [creditState, creditAction, creditPending] = useActionState(recordCreditSale, initial);
@@ -121,7 +121,7 @@ export function KioskActions({ products, debts: _debts }: { products: Product[];
 
       <section className="card section">
         <h2>Manage products</h2>
-        <p className="muted">Change today's selling price or stock threshold without changing historical transactions.</p>
+        <p className="muted">Change today&apos;s selling price or stock threshold without changing historical transactions.</p>
         {products.map((p) => (
           <form action={updateAction} className="form" key={p.id}>
             <input type="hidden" name="product_id" value={p.id} />
