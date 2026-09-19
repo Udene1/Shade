@@ -47,7 +47,7 @@ RETURNS JSONB LANGUAGE plpgsql AS $$
 DECLARE product_row products%ROWTYPE; purchase_id BIGINT; result JSONB;
 BEGIN
   IF NOT claim_kiosk_operation(p_operation_id,'PURCHASE',p_token) THEN
-    SELECT result INTO result FROM operation_requests WHERE id=p_operation_id;
+    SELECT o.result INTO result FROM operation_requests o WHERE o.id=p_operation_id;
     IF result IS NOT NULL THEN RETURN result; END IF;
     RETURN jsonb_build_object('ok',false,'message','This operation is still being processed. Refresh and check transaction history before retrying.');
   END IF;
@@ -70,7 +70,7 @@ RETURNS JSONB LANGUAGE plpgsql AS $$
 DECLARE product_row products%ROWTYPE; unit_cost NUMERIC(14,2); sale_id BIGINT; result JSONB;
 BEGIN
   IF NOT claim_kiosk_operation(p_operation_id,'SALE',p_token) THEN
-    SELECT result INTO result FROM operation_requests WHERE id=p_operation_id;
+    SELECT o.result INTO result FROM operation_requests o WHERE o.id=p_operation_id;
     IF result IS NOT NULL THEN RETURN result; END IF;
     RETURN jsonb_build_object('ok',false,'message','This operation is still being processed. Refresh and check transaction history before retrying.');
   END IF;
@@ -98,7 +98,7 @@ RETURNS JSONB LANGUAGE plpgsql AS $$
 DECLARE product_row products%ROWTYPE; debtor_id BIGINT; sale_id BIGINT; unit_cost NUMERIC(14,2); result JSONB;
 BEGIN
   IF NOT claim_kiosk_operation(p_operation_id,'CREDIT_SALE',p_token) THEN
-    SELECT result INTO result FROM operation_requests WHERE id=p_operation_id;
+    SELECT o.result INTO result FROM operation_requests o WHERE o.id=p_operation_id;
     IF result IS NOT NULL THEN RETURN result; END IF;
     RETURN jsonb_build_object('ok',false,'message','This operation is still being processed. Refresh and check transaction history before retrying.');
   END IF;
