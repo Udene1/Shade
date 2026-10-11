@@ -18,7 +18,7 @@ function OpId({ resetKey }: { resetKey: string }) {
   return <input type="hidden" name="operation_id" value={id} />;
 }
 
-export function KioskActions({ products }: { products: Product[]; debts?: unknown[] }) {
+export function KioskActions({ products, view = "all" }: { products: Product[]; debts?: unknown[]; view?: "all" | "sales" | "products" | "purchasing" }) {
   const [query, setQuery] = useState("");
   const [saleState, saleAction, salePending] = useActionState(recordSale, initial);
   const [creditState, creditAction, creditPending] = useActionState(recordCreditSale, initial);
@@ -29,7 +29,7 @@ export function KioskActions({ products }: { products: Product[]; debts?: unknow
   const [showAddProduct, setShowAddProduct] = useState(products.length === 0);
 
   return (
-    <div className="sections">
+    <div className={`sections kiosk-actions view-${view}`}>
       <section className="card section">
         <h2>{products.length === 0 ? "Add your first product" : "Add product"}</h2>
         <p className="muted">
