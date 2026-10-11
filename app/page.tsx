@@ -1,7 +1,4 @@
 import { sql } from "@/lib/db";
-import { KioskActions } from "@/app/components/KioskActions";
-import { InventoryControls } from "@/app/components/InventoryControls";
-import { DataHealth } from "@/app/components/DataHealth";
 
 type Product = { id: number; name: string; category: string | null; selling_price: number | string; current_stock: number | string; minimum_stock: number | string };
 type Debt = { id: number; debtor_name: string; product_name: string; amount_due: number | string; paid: number | string; balance: number | string };
@@ -65,7 +62,7 @@ export default async function Home() {
   const selectedCapitalInStock = method === "FIFO" ? Number(capitalProductivity?.fifo_capital_in_stock ?? 0) : Number(capitalProductivity?.wac_capital_in_stock ?? 0);
   return (
     <main>
-      <header className="header"><div><h1>Shade</h1><p>Stock, sales and the money tied up in your kiosk.</p></div><span className="badge">{data.connected ? "Database connected" : "Database not configured"}</span></header>
+      <div className="page-heading"><div><div className="eyebrow">YOUR BUSINESS AT A GLANCE</div><h1>Dashboard</h1><p>Here is how your kiosk is doing today.</p></div><span className="connection-pill"><span className="status-dot" />{data.connected ? "Database connected" : "Database not configured"}</span></div>
       <section className="grid">
         <div className="card"><div className="metric-label">Today&apos;s sales</div><div className="metric">₦{revenue.toLocaleString()}</div></div>
         <div className="card"><div className="metric-label">Gross profit ({method})</div><div className="metric">₦{profit.toLocaleString()}</div></div>
@@ -81,9 +78,10 @@ export default async function Home() {
       {idleStock.length > 0 && <section className="card section"><h2>No sales in 30 days</h2>{idleStock.map((p) => <div className="row" key={p.product_id}><div><strong>{p.name}</strong><div className="muted">{Number(p.current_stock).toLocaleString()} units currently held</div></div><span className="muted">₦{Number(p.revenue).toLocaleString()}</span></div>)}</section>}
       {data.concentration.length > 0 && <section className="card section"><h2>Debtor concentration</h2>{data.concentration.map((d) => <div className="row" key={d.name}><div><strong>{d.name}</strong><div className="muted">{d.open_credit_sales} open credit sale{d.open_credit_sales === 1 ? "" : "s"}</div></div><strong>₦{Number(d.outstanding_balance).toLocaleString()} · {(Number(d.outstanding_share) * 100).toFixed(1)}%</strong></div>)}</section>}
       <section className="card section"><h2>Best sellers</h2>{data.bestSellers.length === 0 ? <p className="muted">Record sales to see which products move fastest.</p> : data.bestSellers.map((p) => <div className="row" key={p.name}><div><strong>{p.name}</strong><div className="muted">{p.sold} sold · ₦{Number(p.revenue).toLocaleString()} revenue</div></div><strong>₦{Number(p.profit).toLocaleString()}</strong></div>)}</section>
-      <DataHealth checks={data.healthChecks} />
-      <InventoryControls method={method} products={data.products.map((p) => ({ id: Number(p.id), name: p.name, current_stock: Number(p.current_stock) }))} mismatches={data.mismatches} />
-      <KioskActions products={data.products.map((p) => ({ id: Number(p.id), name: p.name, category: p.category, selling_price: Number(p.selling_price), current_stock: Number(p.current_stock), minimum_stock: Number(p.minimum_stock) }))} debts={data.debts.map((d) => ({ ...d, id: Number(d.id) }))} />
+      <section className="sections">
+        <div className="card section"><h2>Inventory health</h2>{data.lowStock.length === 0 ? <p className="muted">No products are below their minimum stock level.</p> : data.lowStock.slice(0,5).map((p) => <div className="row" key={p.id}><strong>{p.name}</strong><span className="badge">{p.current_stock} left</span></div>)}</div>
+        <div className="card section"><h2>Business data checks</h2><p className="muted">{data.healthChecks.filter((c) => c.status === "ERROR").length} errors · {data.healthChecks.filter((c) => c.status === "WARNING").length} warnings</p><a href="/operations">View transaction records and operations →</a></div>
+      </section>
     </main>
   );
 }
