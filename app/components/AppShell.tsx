@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app-content">
       <header className="topbar"><div className="mobile-brand"><span className="brand-mark">s</span><strong>shade</strong></div><div className="breadcrumb">Workspace <span>/</span> <strong>{active?.label ?? "Operations"}</strong></div><span className="connection-pill"><span className="status-dot" /> Business workspace</span></header>
       <div className="page-content">{children}</div>
-      <nav className="mobile-nav" aria-label="Main navigation">{[links[0], links[1], links[2], links[4], links[6]].map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "mobile-nav-link active" : "mobile-nav-link"}><span>{item.icon}</span><small>{item.label === "Credit & debtors" ? "Credit" : item.label}</small></Link>)}</nav>
+      <nav className="mobile-nav" aria-label="Main navigation">{[links[0], links[1], links[2], links[5], links[6]].map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "mobile-nav-link active" : "mobile-nav-link"}><span>{item.icon}</span><small>{item.label === "Credit & debtors" ? "Credit" : item.label}</small></Link>)}</nav>
     </div>
   </div>;
 }
